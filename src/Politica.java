@@ -1,11 +1,3 @@
-public class Politica {
-    boolean policeType;
-
-    public Politica(boolean policeType) {
-        this.policeType = policeType;
-    }
-
-    public boolean aplicarPolitica(){
-        return false;
-    }
+public abstract class Politica {
+    public abstract int elegir(int[] sensibilizadas);
 }
