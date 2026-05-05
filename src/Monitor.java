@@ -1,86 +1,90 @@
-import java.util.concurrent.Semaphore;
-
 public class Monitor implements MonitorInterface {
     private final RdP rdp;
+    private final Mutex mutex;
+    private final ColaCondicion colas;
     private final PoliticaInterface politica;
-    private final ColaCondicion colaCondicion;
-    private final Semaphore mutex;
 
-    public Monitor(RdP rdp, PoliticaInterface politica) {
+    public Monitor(RdP rdp, Mutex mutex, ColaCondicion colas, PoliticaInterface politica) {
         this.rdp = rdp;
+        this.mutex = mutex;
+        this.colas = colas;
         this.politica = politica;
-        this.colaCondicion = new ColaCondicion(rdp.getCantidadTransiciones());
-        this.mutex = new Semaphore(1);
     }
 
     @Override
     public boolean fireTransition(int transition) throws InterruptedException {
-        mutex.acquire();
+        mutex.acquire(); // 00 acquire()
+        boolean k = true;
 
-        // Esperamos hasta que haya tokens suficientes
-        while (!rdp.esSensibilizadaEstructural(transition)) {
-            colaCondicion.encolar(transition);
-            mutex.release();
-            colaCondicion.esperarPor(transition);
-            mutex.acquire();
-        }
-
-        // Esperamos el tiempo mínimo si la transición es temporal
-        long tiempoEspera = rdp.calcularTiempoEspera(transition);
-        if (tiempoEspera > 0) {
-            mutex.release();
-            Thread.sleep(tiempoEspera);
-            mutex.acquire();
-            // Reevaluamos: mientras dormíamos otro pudo consumir los tokens
-            if (!rdp.esSensibilizadaEstructural(transition)) {
-                colaCondicion.encolar(transition);
+        while (k) {
+            // Si el Main nos interrumpe, salimos soltando el mutex
+            if (Thread.currentThread().isInterrupted()) {
                 mutex.release();
-                return false;
+                throw new InterruptedException();
             }
-        }
 
-        // Solo consultamos la política si esta transición es parte de un conflicto.
-        // Las transiciones no conflictivas se aprueban directamente.
-        if (politica.esTransicionConflictiva(transition)) {
-            boolean[] sensibilizadas = rdp.getSensibilizadas();
-            int transicionElegida = politica.elegir(sensibilizadas);
+            // Verificamos si podemos disparar por estructura (si hay tokens)
+            if (rdp.esSensibilizadaEstructural(transition)) {
 
-            if (transicionElegida != transition) {
-                // La política prefiere otro camino, cedemos
-                colaCondicion.encolar(transition);
+                // Verificamos si estamos dentro de la ventana de tiempo
+                long tiempoEspera = rdp.calcularTiempoEspera(transition);
+
+                if (tiempoEspera == 0) {
+                    // ¡Tokens OK y Tiempo OK! Disparamos.
+                    rdp.disparar(transition);
+
+                    // 00 sensibilizadas() y quienesEstan()
+                    boolean[] Vs = rdp.getSensibilizadas();
+                    boolean[] Vc = colas.quienesEstan();
+
+                    // Ecuación del diagrama: m = Vs AND Vc
+                    boolean[] m = new boolean[Vs.length];
+                    boolean hayParaDespertar = false;
+                    for (int i = 0; i < m.length; i++) {
+                        m[i] = Vs[i] && Vc[i];
+                        if (m[i]) {
+                            hayParaDespertar = true;
+                        }
+                    }
+
+                    if (hayParaDespertar) { // alt [m > 0]
+                        // 00 cual()
+                        int candidato = politica.elegir(m);
+                        if (candidato != -1) {
+                            // 00 release() a la cola
+                            colas.liberar(candidato);
+
+                            // Política Signal and Exit (Handoff).
+                            // Retornamos TRUE, pero NO liberamos el Mutex.
+                            return true;
+                        }
+                    }
+
+                    // Si no hay a quién despertar (m == 0), rompemos el loop
+                    k = false;
+
+                } else {
+                    // Tiene tokens, pero NO cumplió el tiempo.
+                    // Debe dormir FUERA del monitor para no estorbar.
+                    mutex.release();
+                    Thread.sleep(tiempoEspera);
+                    mutex.acquire(); // Volvemos a entrar tras despertar
+                    k = true; // Volvemos a evaluar el ciclo
+                }
+
+            } else {
+                // NO tiene tokens. Va a la cola de condición correspondiente.
                 mutex.release();
-                return false;
+                colas.esperar(transition);
+
+                // Cuando el hilo despierte acá, es porque OTRO hilo le hizo colas.liberar().
+                // Por la regla del Handoff, ya tiene el Mutex regalado.
+                k = true;
             }
         }
 
-        // Disparamos
-        rdp.disparar(transition);
-
-        // Cascada: después del disparo notificamos a los hilos que pueden avanzar.
-        // Para transiciones conflictivas, la política decide quién va primero.
-        // Para el resto, despertamos a todos los que estén sensibilizados y esperando.
-        boolean[] sensibilizadasTras = rdp.getSensibilizadas();
-
-        // Primero: intentamos despertar una transición conflictiva si la política lo aprueba
-        boolean[] posiblesConflictivas = new boolean[sensibilizadasTras.length];
-        for (int i = 0; i < sensibilizadasTras.length; i++) {
-            posiblesConflictivas[i] = sensibilizadasTras[i]
-                    && colaCondicion.hasEnqueued(i)
-                    && politica.esTransicionConflictiva(i);
-        }
-        int candidatoConflictivo = politica.elegir(posiblesConflictivas);
-        if (candidatoConflictivo != -1) {
-            colaCondicion.liberar(candidatoConflictivo);
-        }
-
-        // Segundo: despertamos todas las no conflictivas que estén sensibilizadas y esperando
-        for (int i = 0; i < sensibilizadasTras.length; i++) {
-            if (sensibilizadasTras[i] && colaCondicion.hasEnqueued(i) && !politica.esTransicionConflictiva(i)) {
-                colaCondicion.liberar(i);
-            }
-        }
-
-        mutex.release();
+        // Sólo llegamos aquí si disparamos exitosamente pero no había a nadie a quien despertar
+        mutex.release(); // 00 release() del Mutex
         return true;
     }
 }

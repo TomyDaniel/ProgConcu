@@ -12,7 +12,11 @@ public class Main {
         String nombrePolitica = politica.getClass().getSimpleName();
         System.out.println("Política: " + nombrePolitica);
 
-        Monitor monitor = new Monitor(rdp, politica);
+        // Instanciamos el Mutex y las Colas de Condición antes del Monitor
+        Mutex mutex = new Mutex();
+        ColaCondicion colas = new ColaCondicion(rdp.getCantidadTransiciones());
+
+        Monitor monitor = new Monitor(rdp, mutex, colas, politica);
         String archivoLog = "log_" + nombrePolitica + ".txt";
         Logger logger = new Logger(archivoLog, nombrePolitica);
         logger.start();

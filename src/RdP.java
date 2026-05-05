@@ -24,6 +24,7 @@ public class RdP {
                 { 0,  0,  0,  0,  0,  0,  0,  0,  0,  1, -1,  0},
                 { 0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  1, -1}
         };
+        // Estos tiempos solo corresponden a alfa, no ponemos los de beta dejando implicitamente que sean infinito
         this.tiempos = new long[]{0, 10, 0, 10, 10, 0, 10, 0, 10, 10, 10, 0};
         this.tSensibilizado = new long[12];
         this.invariantesPlaza = new int[][] {
@@ -60,7 +61,6 @@ public class RdP {
 
         tSensibilizado[transition] = 0;
 
-        // BUGFIX: Actualizamos tiempos. Si una transición perdió tokens por este disparo, pierde su tiempo.
         for (int t = 0; t < matrizIncidencia[0].length; t++) {
             if (tiempos[t] > 0) {
                 if (esSensibilizadaEstructural(t)) {

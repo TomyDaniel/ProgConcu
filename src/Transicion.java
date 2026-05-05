@@ -7,6 +7,9 @@ public class Transicion extends Thread {
     private final AtomicInteger invariantesGlobales;
     private final int limite;
 
+    // Contador para controlar que entren exactamente 200 tokens
+    private static final AtomicInteger tokensGenerados = new AtomicInteger(0);
+
     public Transicion(MonitorInterface monitor, int[] secuencia, Logger logger,
                       AtomicInteger invariantesGlobales, int limite, String nombre) {
         this.monitor = monitor;
@@ -23,12 +26,10 @@ public class Transicion extends Thread {
             while (!Thread.currentThread().isInterrupted()) {
                 for (int transicion : secuencia) {
 
-                    // Verificación atómica PREVIA al disparo de la última transición
-                    if (transicion == 11) {
-                        if (invariantesGlobales.incrementAndGet() > limite) {
-                            // Revertimos porque no obtuvimos el permiso para disparar
-                            invariantesGlobales.decrementAndGet();
-                            return; // Este hilo terminó su cuota
+                    // Cerramos la canilla al llegar a 200
+                    if (transicion == 0) {
+                        if (tokensGenerados.incrementAndGet() > limite) {
+                            return; // El generador terminó su trabajo y muere en paz
                         }
                     }
 
@@ -38,11 +39,9 @@ public class Transicion extends Thread {
                         if (disparado) {
                             logger.log(transicion);
 
-                            // Si disparamos T11 y somos el hilo 2000, forzamos la salida
+                            // Le avisamos al Main que un token logró salir
                             if (transicion == 11) {
-                                if (invariantesGlobales.get() == limite) {
-                                    return;
-                                }
+                                invariantesGlobales.incrementAndGet();
                             }
                         }
                     }

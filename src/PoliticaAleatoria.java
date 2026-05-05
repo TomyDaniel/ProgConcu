@@ -3,8 +3,6 @@ import java.util.List;
 import java.util.Random;
 
 public class PoliticaAleatoria implements PoliticaInterface {
-
-    // Transiciones en conflicto entre los tres caminos
     private final int[] conflictivas;
     private final Random rand;
 
@@ -15,12 +13,28 @@ public class PoliticaAleatoria implements PoliticaInterface {
 
     @Override
     public int elegir(boolean[] sensibilizadas) {
-        List<Integer> disponibles = new ArrayList<>();
-        for (int t : conflictivas) {
-            if (t < sensibilizadas.length && sensibilizadas[t]) disponibles.add(t);
+        List<Integer> conflictivasDisponibles = new ArrayList<>();
+        List<Integer> todasDisponibles = new ArrayList<>();
+
+        for (int i = 0; i < sensibilizadas.length; i++) {
+            if (sensibilizadas[i]) {
+                todasDisponibles.add(i);
+                if (esTransicionConflictiva(i)) {
+                    conflictivasDisponibles.add(i);
+                }
+            }
         }
-        if (disponibles.isEmpty()) return -1;
-        return disponibles.get(rand.nextInt(disponibles.size()));
+
+        // Prioridad a resolver conflictos
+        if (!conflictivasDisponibles.isEmpty()) {
+            return conflictivasDisponibles.get(rand.nextInt(conflictivasDisponibles.size()));
+        }
+        // Si no hay conflictivas, despierta a cualquiera que esté esperando
+        else if (!todasDisponibles.isEmpty()) {
+            return todasDisponibles.get(rand.nextInt(todasDisponibles.size()));
+        }
+
+        return -1;
     }
 
     @Override
