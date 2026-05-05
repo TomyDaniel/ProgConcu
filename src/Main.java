@@ -1,7 +1,6 @@
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-    // Para probar que funciona rápido, lo dejamos en 10. Luego subilo a 200.
     private static final int CANTIDAD_INVARIANTES = 200;
 
     public static void main(String[] args) throws InterruptedException {
@@ -9,7 +8,7 @@ public class Main {
         System.out.println("Invariantes a completar: " + CANTIDAD_INVARIANTES);
 
         RdP rdp = new RdP();
-        PoliticaInterface politica = new PoliticaPrioritaria();
+        PoliticaInterface politica = new PoliticaAleatoria();
         String nombrePolitica = politica.getClass().getSimpleName();
         System.out.println("Política: " + nombrePolitica);
 
@@ -18,27 +17,30 @@ public class Main {
         Logger logger = new Logger(archivoLog, nombrePolitica);
         logger.start();
 
-        // Contador compartido por los hilos para saber el progreso total
         AtomicInteger invariantesGlobales = new AtomicInteger(0);
 
         // Hilo 0 - Generador (pre-conflicto): T0 -> T1
         Transicion hiloGenerador = new Transicion(
-                monitor, new int[]{0, 1}, logger, invariantesGlobales, "Hilo-Generador"
+                monitor, new int[]{0, 1}, logger,
+                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Generador"
         );
 
         // Hilo 1 - modo simple: T5 -> T6 -> T11
         Transicion hiloSimple = new Transicion(
-                monitor, new int[]{5, 6, 11}, logger, invariantesGlobales, "Hilo-Simple"
+                monitor, new int[]{5, 6, 11}, logger,
+                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Simple"
         );
 
         // Hilo 2 - modo media: T2 -> T3 -> T4 -> T11
         Transicion hiloMedia = new Transicion(
-                monitor, new int[]{2, 3, 4, 11}, logger, invariantesGlobales, "Hilo-Media"
+                monitor, new int[]{2, 3, 4, 11}, logger,
+                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Media"
         );
 
         // Hilo 3 - modo alta: T7 -> T8 -> T9 -> T10 -> T11
         Transicion hiloAlta = new Transicion(
-                monitor, new int[]{7, 8, 9, 10, 11}, logger, invariantesGlobales, "Hilo-Alta"
+                monitor, new int[]{7, 8, 9, 10, 11}, logger,
+                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Alta"
         );
 
         System.out.println("Iniciando hilos...");
@@ -49,20 +51,18 @@ public class Main {
         hiloMedia.start();
         hiloAlta.start();
 
-        // El hilo principal espera a que el sistema alcance la meta requerida
+        // Esperamos a que el sistema alcance la meta
         while (invariantesGlobales.get() < CANTIDAD_INVARIANTES) {
-            Thread.sleep(50); // Polling ligero para no saturar CPU
+            Thread.sleep(50);
         }
 
         System.out.println("\nMeta alcanzada. Enviando señal de apagado...");
 
-        // Finalizamos los hilos interrumpiéndolos en el semáforo del monitor
         hiloGenerador.interrupt();
         hiloSimple.interrupt();
         hiloMedia.interrupt();
         hiloAlta.interrupt();
 
-        // Esperamos a que mueran limpiamente
         hiloGenerador.join();
         hiloSimple.join();
         hiloMedia.join();

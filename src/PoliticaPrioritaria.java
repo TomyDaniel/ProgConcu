@@ -1,9 +1,10 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class PoliticaPrioritaria implements PoliticaInterface {
 
-    // T5 (simple) > T2 (media) > T7 (alta)
+    // Transiciones en conflicto, en orden de prioridad: T5 (simple) > T2 (media) > T7 (alta)
     private final int[] prioridades;
 
     public PoliticaPrioritaria() {
@@ -12,19 +13,18 @@ public class PoliticaPrioritaria implements PoliticaInterface {
 
     @Override
     public int elegir(boolean[] sensibilizadas) {
-        List<Integer> disponibles = obtenerDisponibles(sensibilizadas);
-        if (disponibles.isEmpty()) return -1;
-        for (int transicion : prioridades) {
-            if (disponibles.contains(transicion)) return transicion;
+        // Devuelve la transición de mayor prioridad que esté sensibilizada
+        for (int t : prioridades) {
+            if (t < sensibilizadas.length && sensibilizadas[t]) return t;
         }
-        return disponibles.get(0);
+        return -1;
     }
 
-    private List<Integer> obtenerDisponibles(boolean[] sensibilizadas) {
-        List<Integer> disponibles = new ArrayList<>();
-        for (int i = 0; i < sensibilizadas.length; i++) {
-            if (sensibilizadas[i]) disponibles.add(i);
+    @Override
+    public boolean esTransicionConflictiva(int transition) {
+        for (int t : prioridades) {
+            if (t == transition) return true;
         }
-        return disponibles;
+        return false;
     }
 }
