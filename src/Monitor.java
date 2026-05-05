@@ -49,7 +49,7 @@ public class Monitor implements MonitorInterface {
 
                     if (hayParaDespertar) { // alt [m > 0]
                         // 00 cual()
-                        int candidato = politica.elegir(m);
+                        int candidato = politica.elegir(m, Vs);
                         if (candidato != -1) {
                             // 00 release() a la cola
                             colas.liberar(candidato);

@@ -12,29 +12,27 @@ public class PoliticaAleatoria implements PoliticaInterface {
     }
 
     @Override
-    public int elegir(boolean[] sensibilizadas) {
-        List<Integer> conflictivasDisponibles = new ArrayList<>();
-        List<Integer> todasDisponibles = new ArrayList<>();
+    public int elegir(boolean[] m, boolean[] Vs) {
+        // La política aleatoria no hace "reserva de recursos" mirando Vs.
+        // Simplemente busca quiénes tienen tokens Y están esperando en la cola (m).
 
-        for (int i = 0; i < sensibilizadas.length; i++) {
-            if (sensibilizadas[i]) {
-                todasDisponibles.add(i);
-                if (esTransicionConflictiva(i)) {
-                    conflictivasDisponibles.add(i);
-                }
+        List<Integer> opcionesValidas = new ArrayList<>();
+
+        // Recolectamos todas las transiciones que están listas para ser despertadas
+        for (int i = 0; i < m.length; i++) {
+            if (m[i]) {
+                opcionesValidas.add(i);
             }
         }
 
-        // Prioridad a resolver conflictos
-        if (!conflictivasDisponibles.isEmpty()) {
-            return conflictivasDisponibles.get(rand.nextInt(conflictivasDisponibles.size()));
-        }
-        // Si no hay conflictivas, despierta a cualquiera que esté esperando
-        else if (!todasDisponibles.isEmpty()) {
-            return todasDisponibles.get(rand.nextInt(todasDisponibles.size()));
+        // Si no hay nadie a quien despertar, retornamos -1
+        if (opcionesValidas.isEmpty()) {
+            return -1;
         }
 
-        return -1;
+        // Elegimos una transición al azar de la lista
+        int indiceAleatorio = rand.nextInt(opcionesValidas.size());
+        return opcionesValidas.get(indiceAleatorio);
     }
 
     @Override

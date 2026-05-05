@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
@@ -7,78 +9,91 @@ public class Main {
         System.out.println("=== Sistema de Procesamiento de Datos ===");
         System.out.println("Invariantes a completar: " + CANTIDAD_INVARIANTES);
 
+        // Configuracion de Hilos
+        int cantHilosGenerador = 1;
+        int cantHilosSimple    = 1;
+        int cantHilosMedia     = 1;
+        int cantHilosAlta      = 1;
+        int cantHilosSalida    = 3; // Maximo 3 tokens en paralelo
+
+        // Inicializacion de clases que no aportan concurrencia
         RdP rdp = new RdP();
-        PoliticaInterface politica = new PoliticaAleatoria();
+        PoliticaInterface politica = new PoliticaPrioritaria();
         String nombrePolitica = politica.getClass().getSimpleName();
         System.out.println("Política: " + nombrePolitica);
 
-        // Instanciamos el Mutex y las Colas de Condición antes del Monitor
-        Mutex mutex = new Mutex();
-        ColaCondicion colas = new ColaCondicion(rdp.getCantidadTransiciones());
-
-        Monitor monitor = new Monitor(rdp, mutex, colas, politica);
+        // Inicializacion del logger
         String archivoLog = "log_" + nombrePolitica + ".txt";
         Logger logger = new Logger(archivoLog, nombrePolitica);
         logger.start();
 
+        // Inicializacion de clases fundamentales en la concurrencia
+        Mutex mutex = new Mutex();
+        ColaCondicion colas = new ColaCondicion(rdp.getCantidadTransiciones());
+        Monitor monitor = new Monitor(rdp, mutex, colas, politica);
+
         AtomicInteger invariantesGlobales = new AtomicInteger(0);
+        List<Transicion> todosLosHilos = new ArrayList<>();
 
-        // Hilo 0 - Generador (pre-conflicto): T0 -> T1
-        Transicion hiloGenerador = new Transicion(
-                monitor, new int[]{0, 1}, logger,
-                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Generador"
-        );
+        // Creacion de Hilos
+        // Hilo generador: T0 -> T1
+        for (int i = 0; i < cantHilosGenerador; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{0, 1}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Generador-" + i));
+        }
 
-        // Hilo 1 - modo simple: T5 -> T6 -> T11
-        Transicion hiloSimple = new Transicion(
-                monitor, new int[]{5, 6, 11}, logger,
-                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Simple"
-        );
+        // Modo simple: T5 -> T6
+        for (int i = 0; i < cantHilosSimple; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{5, 6}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Simple-" + i));
+        }
 
-        // Hilo 2 - modo media: T2 -> T3 -> T4 -> T11
-        Transicion hiloMedia = new Transicion(
-                monitor, new int[]{2, 3, 4, 11}, logger,
-                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Media"
-        );
+        // Modo media: T2 -> T3 -> T4
+        for (int i = 0; i < cantHilosMedia; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{2, 3, 4}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Media-" + i));
+        }
 
-        // Hilo 3 - modo alta: T7 -> T8 -> T9 -> T10 -> T11
-        Transicion hiloAlta = new Transicion(
-                monitor, new int[]{7, 8, 9, 10, 11}, logger,
-                invariantesGlobales, CANTIDAD_INVARIANTES, "Hilo-Alta"
-        );
+        // Modo alta: T7 -> T8 -> T9 -> T10
+        for (int i = 0; i < cantHilosAlta; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{7, 8, 9, 10}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Alta-" + i));
+        }
 
-        System.out.println("Iniciando hilos...");
+        // Salida / Join: T11
+        for (int i = 0; i < cantHilosSalida; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{11}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Salida-" + i));
+        }
+
+        // Ejecucion de las cosas
+        System.out.println("Iniciando " + todosLosHilos.size() + " hilos en total...");
         long tiempoInicio = System.currentTimeMillis();
 
-        hiloGenerador.start();
-        hiloSimple.start();
-        hiloMedia.start();
-        hiloAlta.start();
+        for (Transicion hilo : todosLosHilos) {
+            hilo.start();
+        }
 
-        // Esperamos a que el sistema alcance la meta
+        // Esperamos hasta terminar
         while (invariantesGlobales.get() < CANTIDAD_INVARIANTES) {
             Thread.sleep(50);
         }
 
-        System.out.println("\nMeta alcanzada. Enviando señal de apagado...");
+        System.out.println("\nMeta alcanzada. Enviando señal de apagado a todos los hilos...");
 
-        hiloGenerador.interrupt();
-        hiloSimple.interrupt();
-        hiloMedia.interrupt();
-        hiloAlta.interrupt();
+        // Apagamos
+        for (Transicion hilo : todosLosHilos) {
+            hilo.interrupt();
+        }
 
-        hiloGenerador.join();
-        hiloSimple.join();
-        hiloMedia.join();
-        hiloAlta.join();
+        for (Transicion hilo : todosLosHilos) {
+            hilo.join();
+        }
 
         long tiempoTotal = System.currentTimeMillis() - tiempoInicio;
-        System.out.println("Todos los hilos terminaron.");
+        System.out.println("Todos los hilos terminaron su ejecución.");
         System.out.println("Tiempo de ejecución: " + tiempoTotal + " ms");
 
+        // Apagado de loggers
         logger.finalizar();
         logger.join();
-        System.out.println("Log guardado en: " + archivoLog);
+
+        System.out.println("Log principal guardado en: " + archivoLog);
 
         System.out.println("\n=== Análisis de Invariantes ===");
         AnalizadorInvariantes analizador = new AnalizadorInvariantes(archivoLog);
