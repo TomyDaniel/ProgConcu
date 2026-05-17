@@ -1,87 +1,109 @@
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-    public static void main(String[] args) throws IOException, InterruptedException {
-        System.out.println("=== SIMULADOR RED DE PETRI - 200 INVARIANTES ===\n");
+    private static final int CANTIDAD_INVARIANTES = 200;
 
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("=== Sistema de Procesamiento de Datos ===");
+        System.out.println("Invariantes a completar: " + CANTIDAD_INVARIANTES);
+
+        // Configuracion de Hilos
+        int cantHilosGenerador = 1;
+        int cantHilosSimple    = 1;
+        int cantHilosMedia     = 1;
+        int cantHilosAlta      = 1;
+        int cantHilosSalida    = 3; // Maximo 3 tokens en paralelo
+
+        // Inicializacion de clases que no aportan concurrencia
         RdP rdp = new RdP();
-        Politica politica = new PoliticaAleatoria();
-        Log log = new Log("logs/ejecucion.log");
+        PoliticaInterface politica = new PoliticaPrioritaria();
+        String nombrePolitica = politica.getClass().getSimpleName();
+        System.out.println("Política: " + nombrePolitica);
 
-        try {
-            Monitor monitor = new Monitor(rdp, politica, log);
+        // Inicializacion del logger
+        String archivoLog = "log_" + nombrePolitica + ".txt";
+        Logger logger = new Logger(archivoLog, nombrePolitica);
+        logger.start();
 
-            // Definir los 3 invariantes de transición
-            int[] invariante1 = {0, 1, 2, 3, 4, 11};      // Simple
-            int[] invariante2 = {0, 1, 5, 6, 11};         // Media
-            int[] invariante3 = {0, 1, 7, 8, 9, 10, 11}; // Alta
+        // Inicializacion de clases fundamentales en la concurrencia
+        Mutex mutex = new Mutex();
+        ColaCondicion colas = new ColaCondicion(rdp.getCantidadTransiciones());
+        Monitor monitor = new Monitor(rdp, mutex, colas, politica);
 
-            log.escribir("Sistema iniciado con 3 hilos");
-            log.escribir("Marcado inicial: " + arrayToString(rdp.getMarcadoActual()));
+        AtomicInteger invariantesGlobales = new AtomicInteger(0);
+        List<Transicion> todosLosHilos = new ArrayList<>();
 
-            long tiempoInicio = System.currentTimeMillis();
-            System.out.println("Tiempo inicio: " + tiempoInicio);
-
-            // Crear 3 hilos (uno para cada invariante)
-            List<Thread> hilos = new ArrayList<>();
-            Thread hilo1 = new Thread(new Hilos(monitor, invariante1, "Hilo-Simple", 0));
-            Thread hilo2 = new Thread(new Hilos(monitor, invariante2, "Hilo-Media", 1));
-            Thread hilo3 = new Thread(new Hilos(monitor, invariante3, "Hilo-Alta", 2));
-
-            hilos.add(hilo1);
-            hilos.add(hilo2);
-            hilos.add(hilo3);
-
-            // Iniciar los 3 hilos
-            for (Thread h : hilos) {
-                h.start();
-            }
-
-            // Esperar a que terminen
-            for (Thread h : hilos) {
-                h.join();
-            }
-
-            long tiempoFin = System.currentTimeMillis();
-            long tiempoTotal = tiempoFin - tiempoInicio;
-
-            System.out.println("\n=== RESULTADOS ===");
-            System.out.println("Invariantes completados: " + Hilos.invariantesCompletados.get());
-            System.out.println("Tiempo total: " + tiempoTotal + " ms (" + String.format("%.2f", tiempoTotal / 1000.0) + " s)");
-            System.out.println("  - Simple: " + Hilos.conteoInvariantes[0]);
-            System.out.println("  - Media: " + Hilos.conteoInvariantes[1]);
-            System.out.println("  - Alta: " + Hilos.conteoInvariantes[2]);
-
-            if (tiempoTotal < 20000 || tiempoTotal > 40000) {
-                System.out.println("⚠ Tiempo fuera del rango 20-40 segundos");
-            } else {
-                System.out.println("✓ Tiempo dentro del rango requerido");
-            }
-
-            log.escribir("\nMarcado final: " + arrayToString(rdp.getMarcadoActual()));
-            log.analizarInvariantesTransicion();
-            log.mostrarEstadisticas(tiempoInicio, tiempoFin, Hilos.conteoInvariantes);
-            log.escribir("Sistema finalizado");
-
-            log.cerrar();
-            System.out.println("\nLog: logs/ejecucion.log");
-
-        } catch (Exception e) {
-            System.err.println("ERROR: " + e.getMessage());
-            e.printStackTrace();
-            log.cerrar();
+        // Creacion de Hilos
+        // Hilo generador: T0 -> T1
+        for (int i = 0; i < cantHilosGenerador; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{0, 1}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Generador-" + i));
         }
-    }
 
-    private static String arrayToString(int[] array) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < array.length; i++) {
-            sb.append(array[i]);
-            if (i < array.length - 1) sb.append(", ");
+        // Modo simple: T5 -> T6
+        for (int i = 0; i < cantHilosSimple; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{5, 6}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Simple-" + i));
         }
-        sb.append("]");
-        return sb.toString();
+
+        // Modo media: T2 -> T3 -> T4
+        for (int i = 0; i < cantHilosMedia; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{2, 3, 4}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Media-" + i));
+        }
+
+        // Modo alta: T7 -> T8 -> T9 -> T10
+        for (int i = 0; i < cantHilosAlta; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{7, 8, 9, 10}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Alta-" + i));
+        }
+
+        // Salida / Join: T11
+        for (int i = 0; i < cantHilosSalida; i++) {
+            todosLosHilos.add(new Transicion(monitor, new int[]{11}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Salida-" + i));
+        }
+
+        // Ejecucion de las cosas
+        System.out.println("Iniciando " + todosLosHilos.size() + " hilos en total...");
+        long tiempoInicio = System.currentTimeMillis();
+
+        for (Transicion hilo : todosLosHilos) {
+            hilo.start();
+        }
+
+        // Esperamos hasta terminar
+        while (invariantesGlobales.get() < CANTIDAD_INVARIANTES) {
+            Thread.sleep(50);
+        }
+
+        System.out.println("\nMeta alcanzada. Enviando señal de apagado a todos los hilos...");
+
+        // Apagamos
+        for (Transicion hilo : todosLosHilos) {
+            hilo.interrupt();
+        }
+
+        for (Transicion hilo : todosLosHilos) {
+            hilo.join();
+        }
+
+        long tiempoTotal = System.currentTimeMillis() - tiempoInicio;
+        System.out.println("Todos los hilos terminaron su ejecución.");
+        System.out.println("Tiempo de ejecución: " + tiempoTotal + " ms");
+
+        // Apagado de loggers
+        logger.finalizar();
+        logger.join();
+
+        System.out.println("Log principal guardado en: " + archivoLog);
+
+        System.out.println("\n=== Análisis de Invariantes ===");
+        AnalizadorInvariantes analizador = new AnalizadorInvariantes(archivoLog);
+        analizador.analizar();
+
+        if (analizador.cumpleInvariante()) {
+            System.out.println("  Invariantes de transición verificados correctamente.");
+        } else {
+            System.out.println("  Error en la verificación de invariantes.");
+        }
+        System.out.println("\n=== Fin del Sistema ===");
     }
 }
