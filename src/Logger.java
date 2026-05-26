@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Logger extends Thread {
     private final BlockingQueue<String> queue;
     private BufferedWriter writer;
+    private BufferedWriter statsWriter;
     private final AtomicBoolean finalizar;
     private final String nombreArchivo;
     private final long startTime;
@@ -20,18 +21,28 @@ public class Logger extends Thread {
 
         try {
             this.writer = new BufferedWriter(new FileWriter(nombreArchivo));
-            writer.write("=== LOG DE DISPAROS ===");
+            this.statsWriter = new BufferedWriter(new FileWriter("log_estadisticas.txt"));
+
+            String encabezado1 = "=== LOG DE DISPAROS ===";
+            String encabezado2 = "Política: " + politica;
+            String encabezado3 = "Inicio: " + new java.util.Date();
+            String encabezado4 = "======================";
+
+            writer.write(encabezado1);
             writer.newLine();
-            writer.write("Política: " + politica);
+
+            writer.write(encabezado2);
             writer.newLine();
-            writer.write("Inicio: " + new java.util.Date());
+
+            writer.write(encabezado3);
             writer.newLine();
-            writer.write("======================");
+
+            writer.write(encabezado4);
             writer.newLine();
-            // Dejamos la línea lista para que los hilos empiecen a escribir sus secuencias
+
             writer.flush();
         } catch (IOException e) {
-            System.err.println("Error abriendo archivo de log: " + e.getMessage());
+            System.err.println("Error abriendo archivos de log: " + e.getMessage());
         }
 
         this.setDaemon(false);
@@ -40,7 +51,6 @@ public class Logger extends Thread {
 
     public void log(int transition) {
         try {
-            // Formato lineal: T0-T1-T5-
             queue.put("T" + transition + "-");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -70,43 +80,58 @@ public class Logger extends Thread {
             while (true) {
                 String entrada = queue.take();
                 if (entrada.equals("FIN")) {
-                    writer.newLine(); // Hacemos el salto de línea al terminar toda la cadena
+                    writer.newLine();
+                    statsWriter.newLine();
                     break;
                 }
-                // Escribimos en la misma línea sin saltos
                 writer.write(entrada);
+                statsWriter.write(entrada);
             }
         } catch (InterruptedException | IOException e) {
             Thread.currentThread().interrupt();
         } finally {
             escribirResumenFinal();
-            cerrarArchivo();
+            cerrarArchivos();
         }
     }
 
     private void escribirResumenFinal() {
         try {
-            writer.write("======================");
+            String resumen1 = "======================";
+            String resumen2 = "Fin: " + new java.util.Date();
+            String resumen3 = "Tiempo total: " + getTotalTime() + " ms";
+            String resumen4 = "======================";
+
+            writer.write(resumen1);
             writer.newLine();
-            writer.write("Fin: " + new java.util.Date());
+
+            writer.write(resumen2);
             writer.newLine();
-            writer.write("Tiempo total: " + getTotalTime() + " ms");
+
+            writer.write(resumen3);
             writer.newLine();
-            writer.write("======================");
+
+            writer.write(resumen4);
             writer.newLine();
+
             writer.flush();
+            statsWriter.flush();
         } catch (IOException e) {
             System.err.println("Error escribiendo resumen: " + e.getMessage());
         }
     }
 
-    private void cerrarArchivo() {
+    private void cerrarArchivos() {
         try {
             if (writer != null) {
                 writer.close();
             }
+            if (statsWriter != null) {
+                statsWriter.close();
+            }
         } catch (IOException e) {
-            System.err.println("Error cerrando archivo de log: " + e.getMessage());
+            System.err.println("Error cerrando archivos de log: " + e.getMessage());
         }
     }
 }
+

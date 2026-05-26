@@ -7,22 +7,25 @@ public class PoliticaPrioritaria implements PoliticaInterface {
 
     @Override
     public int elegir(boolean[] m, boolean[] Vs) {
-        // Prioridad Absoluta al Camino Simple (T5)
-        if (Vs[5]) { // Si hay datos y procesador disponible para el Simple...
-            if (m[5]) {
-                return 5; // El hilo Simple ya llegó a la cola, lo despertamos.
-            } else {
-                // El hilo Simple está ocupado (yendo a T11), pero le guardamos el recurso.
-                // Retornamos -1 para evitar que los hilos Medio y Alto se lo roben.
-                return -1;
-            }
+        // Prioridad al Camino Simple (T5) si está disponible
+        if (m[5]) {
+            return 5;
         }
 
-        // Solo si NO hay datos para el Simple, dejamos pasar a los demás
-        if (m[2]) return 2;
-        if (m[7]) return 7;
+        // Si Simple no está disponible, elegir aleatoriamente entre Media y Alta
+        boolean mediaDisponible = m[2];
+        boolean altaDisponible = m[7];
 
-        // Retorno por defecto
+        if (mediaDisponible && altaDisponible) {
+            // Ambos disponibles, elegir aleatoriamente
+            return Math.random() < 0.5 ? 2 : 7;
+        } else if (mediaDisponible) {
+            return 2;
+        } else if (altaDisponible) {
+            return 7;
+        }
+
+        // Si ninguno de los tres está disponible, buscar cualquier otro
         for (int i = 0; i < m.length; i++) {
             if (m[i]) return i;
         }
