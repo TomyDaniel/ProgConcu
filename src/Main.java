@@ -18,19 +18,23 @@ public class Main {
 
         // Inicializacion de clases que no aportan concurrencia
         RdP rdp = new RdP();
-        PoliticaInterface politica = new PoliticaPrioritaria();
+        PoliticaInterface politica;
+        if (args.length > 0 && args[0].equals("aleatoria")) {
+            politica = new PoliticaAleatoria();
+        } else {
+            politica = new PoliticaPrioritaria();
+        }
         String nombrePolitica = politica.getClass().getSimpleName();
         System.out.println("Política: " + nombrePolitica);
 
         // Inicializacion del logger
-        String archivoLog = "log_" + nombrePolitica + ".txt";
-        Logger logger = new Logger(archivoLog, nombrePolitica);
+        Logger logger = new Logger(nombrePolitica);
         logger.start();
 
         // Inicializacion de clases fundamentales en la concurrencia
         Mutex mutex = new Mutex();
         ColaCondicion colas = new ColaCondicion(rdp.getCantidadTransiciones());
-        Monitor monitor = new Monitor(rdp, mutex, colas, politica);
+        Monitor monitor = new Monitor(rdp, mutex, colas, politica, logger);
 
         AtomicInteger invariantesGlobales = new AtomicInteger(0);
         List<Transicion> todosLosHilos = new ArrayList<>();
@@ -93,10 +97,11 @@ public class Main {
         logger.finalizar();
         logger.join();
 
-        System.out.println("Log principal guardado en: " + archivoLog);
+        System.out.println("Log principal guardado en: log.txt");
+        System.out.println("Log de transiciones guardado en: log_transiciones.txt");
 
         System.out.println("\n=== Análisis de Invariantes ===");
-        AnalizadorInvariantes analizador = new AnalizadorInvariantes(archivoLog);
+        AnalizadorInvariantes analizador = new AnalizadorInvariantes("log_transiciones.txt");
         analizador.analizar();
 
         if (analizador.cumpleInvariante()) {

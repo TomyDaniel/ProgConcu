@@ -25,7 +25,7 @@ public class RdP {
                 { 0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  1, -1}
         };
         // Estos tiempos solo corresponden a alfa, no ponemos los de beta dejando implicitamente que sean infinito
-        this.tiempos = new long[]{0, 10, 0, 10, 10, 0, 10, 0, 10, 10, 10, 0};
+        this.tiempos = new long[]{0, 100, 0, 100, 100, 0, 100, 0, 100, 100, 100, 0};
         this.tSensibilizado = new long[12];
         this.invariantesPlaza = new int[][] {
                 {  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0},

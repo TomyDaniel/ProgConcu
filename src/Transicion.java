@@ -37,7 +37,7 @@ public class Transicion extends Thread {
                     while (!disparado) {
                         disparado = monitor.fireTransition(transicion);
                         if (disparado) {
-                            logger.log(transicion);
+                            logger.logTransicion(transicion);
 
                             // Le avisamos al Main que un token logró salir
                             if (transicion == 11) {

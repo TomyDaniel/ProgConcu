@@ -3,41 +3,42 @@ public class Monitor implements MonitorInterface {
     private final Mutex mutex;
     private final ColaCondicion colas;
     private final PoliticaInterface politica;
+    private final Logger logger;
 
-    public Monitor(RdP rdp, Mutex mutex, ColaCondicion colas, PoliticaInterface politica) {
+    public Monitor(RdP rdp, Mutex mutex, ColaCondicion colas, PoliticaInterface politica, Logger logger) {
         this.rdp = rdp;
         this.mutex = mutex;
         this.colas = colas;
         this.politica = politica;
+        this.logger = logger;
     }
 
     @Override
     public boolean fireTransition(int transition) throws InterruptedException {
-        mutex.acquire(); // 00 acquire()
+        String hilo = Thread.currentThread().getName();
+
+        mutex.acquire();
+        logger.logDetalle(hilo + " adquirio el mutex (fireTransition T" + transition + ")");
+
         boolean k = true;
 
         while (k) {
-            // Si el Main nos interrumpe, salimos soltando el mutex
             if (Thread.currentThread().isInterrupted()) {
+                logger.logDetalle(hilo + " interrumpido, libera el mutex");
                 mutex.release();
                 throw new InterruptedException();
             }
 
-            // Verificamos si podemos disparar por estructura (si hay tokens)
             if (rdp.esSensibilizadaEstructural(transition)) {
-
-                // Verificamos si estamos dentro de la ventana de tiempo
                 long tiempoEspera = rdp.calcularTiempoEspera(transition);
 
                 if (tiempoEspera == 0) {
-                    // ¡Tokens OK y Tiempo OK! Disparamos.
                     rdp.disparar(transition);
+                    logger.logDetalle(hilo + " disparo T" + transition);
 
-                    // 00 sensibilizadas() y quienesEstan()
                     boolean[] Vs = rdp.getSensibilizadas();
                     boolean[] Vc = colas.quienesEstan();
 
-                    // Ecuación del diagrama: m = Vs AND Vc
                     boolean[] m = new boolean[Vs.length];
                     boolean hayParaDespertar = false;
                     for (int i = 0; i < m.length; i++) {
@@ -47,44 +48,38 @@ public class Monitor implements MonitorInterface {
                         }
                     }
 
-                    if (hayParaDespertar) { // alt [m > 0]
-                        // 00 cual()
+                    if (hayParaDespertar) {
                         int candidato = politica.elegir(m, Vs);
                         if (candidato != -1) {
-                            // 00 release() a la cola
                             colas.liberar(candidato);
-
-                            // Política Signal and Exit (Handoff).
-                            // Retornamos TRUE, pero NO liberamos el Mutex.
+                            logger.logDetalle(hilo + " despertó a hilo esperando por T" + candidato + " (handoff)");
                             return true;
                         }
                     }
 
-                    // Si no hay a quién despertar (m == 0), rompemos el loop
                     k = false;
 
                 } else {
-                    // Tiene tokens, pero NO cumplió el tiempo.
-                    // Debe dormir FUERA del monitor para no estorbar.
+                    logger.logDetalle(hilo + " libera mutex, duerme " + tiempoEspera + "ms (T" + transition + " no sensibilizada por tiempo)");
                     mutex.release();
                     Thread.sleep(tiempoEspera);
-                    mutex.acquire(); // Volvemos a entrar tras despertar
-                    k = true; // Volvemos a evaluar el ciclo
+                    logger.logDetalle(hilo + " despierta, intenta re-adquirir mutex");
+                    mutex.acquire();
+                    logger.logDetalle(hilo + " re-adquirio el mutex");
+                    k = true;
                 }
 
             } else {
-                // NO tiene tokens. Va a la cola de condición correspondiente.
+                logger.logDetalle(hilo + " libera mutex, espera en cola de condicion (T" + transition + " sin tokens)");
                 mutex.release();
                 colas.esperar(transition);
-
-                // Cuando el hilo despierte acá, es porque OTRO hilo le hizo colas.liberar().
-                // Por la regla del Handoff, ya tiene el Mutex regalado.
+                logger.logDetalle(hilo + " despierta de cola de condicion (handoff), tiene el mutex");
                 k = true;
             }
         }
 
-        // Sólo llegamos aquí si disparamos exitosamente pero no había a nadie a quien despertar
-        mutex.release(); // 00 release() del Mutex
+        logger.logDetalle(hilo + " libera mutex y sale (no habia a quien despertar)");
+        mutex.release();
         return true;
     }
 }
