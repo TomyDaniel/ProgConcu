@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
@@ -14,16 +15,11 @@ public class Main {
         int cantHilosSimple    = 1;
         int cantHilosMedia     = 1;
         int cantHilosAlta      = 1;
-        int cantHilosSalida    = 3; // Maximo 3 tokens en paralelo
+        int cantHilosSalida    = 1;
 
         // Inicializacion de clases que no aportan concurrencia
         RdP rdp = new RdP();
-        PoliticaInterface politica;
-        if (args.length > 0 && args[0].equals("aleatoria")) {
-            politica = new PoliticaAleatoria();
-        } else {
-            politica = new PoliticaPrioritaria();
-        }
+        PoliticaInterface politica = new PoliticaAleatoria();
         String nombrePolitica = politica.getClass().getSimpleName();
         System.out.println("Política: " + nombrePolitica);
 
@@ -37,32 +33,33 @@ public class Main {
         Monitor monitor = new Monitor(rdp, mutex, colas, politica, logger);
 
         AtomicInteger invariantesGlobales = new AtomicInteger(0);
+        AtomicBoolean apagado = new AtomicBoolean(false);
         List<Transicion> todosLosHilos = new ArrayList<>();
 
         // Creacion de Hilos
         // Hilo generador: T0 -> T1
         for (int i = 0; i < cantHilosGenerador; i++) {
-            todosLosHilos.add(new Transicion(monitor, new int[]{0, 1}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Generador-" + i));
+            todosLosHilos.add(new Transicion(monitor, new int[]{0, 1}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Generador-" + i, apagado));
         }
 
         // Modo simple: T5 -> T6
         for (int i = 0; i < cantHilosSimple; i++) {
-            todosLosHilos.add(new Transicion(monitor, new int[]{5, 6}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Simple-" + i));
+            todosLosHilos.add(new Transicion(monitor, new int[]{5, 6}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Simple-" + i, apagado));
         }
 
         // Modo media: T2 -> T3 -> T4
         for (int i = 0; i < cantHilosMedia; i++) {
-            todosLosHilos.add(new Transicion(monitor, new int[]{2, 3, 4}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Media-" + i));
+            todosLosHilos.add(new Transicion(monitor, new int[]{2, 3, 4}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Media-" + i, apagado));
         }
 
         // Modo alta: T7 -> T8 -> T9 -> T10
         for (int i = 0; i < cantHilosAlta; i++) {
-            todosLosHilos.add(new Transicion(monitor, new int[]{7, 8, 9, 10}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Alta-" + i));
+            todosLosHilos.add(new Transicion(monitor, new int[]{7, 8, 9, 10}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Alta-" + i, apagado));
         }
 
         // Salida / Join: T11
         for (int i = 0; i < cantHilosSalida; i++) {
-            todosLosHilos.add(new Transicion(monitor, new int[]{11}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Salida-" + i));
+            todosLosHilos.add(new Transicion(monitor, new int[]{11}, logger, invariantesGlobales, CANTIDAD_INVARIANTES, "Salida-" + i, apagado));
         }
 
         // Ejecucion de las cosas
@@ -80,7 +77,8 @@ public class Main {
 
         System.out.println("\nMeta alcanzada. Enviando señal de apagado a todos los hilos...");
 
-        // Apagamos
+        // Apagamos: primero flag, luego interrupt para despertar bloqueados
+        apagado.set(true);
         for (Transicion hilo : todosLosHilos) {
             hilo.interrupt();
         }
@@ -101,14 +99,9 @@ public class Main {
         System.out.println("Log de transiciones guardado en: log_transiciones.txt");
 
         System.out.println("\n=== Análisis de Invariantes ===");
-        AnalizadorInvariantes analizador = new AnalizadorInvariantes("log_transiciones.txt");
+        AnalizadorInvariantes analizador = new AnalizadorInvariantes("log_transiciones.txt", CANTIDAD_INVARIANTES);
         analizador.analizar();
 
-        if (analizador.cumpleInvariante()) {
-            System.out.println("  Invariantes de transición verificados correctamente.");
-        } else {
-            System.out.println("  Error en la verificación de invariantes.");
-        }
         System.out.println("\n=== Fin del Sistema ===");
     }
 }

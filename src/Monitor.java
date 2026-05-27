@@ -35,6 +35,7 @@ public class Monitor implements MonitorInterface {
                 if (tiempoEspera == 0) {
                     rdp.disparar(transition);
                     logger.logDetalle(hilo + " disparo T" + transition);
+                    logger.logTransicion(transition);
 
                     boolean[] Vs = rdp.getSensibilizadas();
                     boolean[] Vc = colas.quienesEstan();
@@ -53,6 +54,7 @@ public class Monitor implements MonitorInterface {
                         if (candidato != -1) {
                             colas.liberar(candidato);
                             logger.logDetalle(hilo + " despertó a hilo esperando por T" + candidato + " (handoff)");
+                            mutex.release();
                             return true;
                         }
                     }
@@ -63,7 +65,6 @@ public class Monitor implements MonitorInterface {
                     logger.logDetalle(hilo + " libera mutex, duerme " + tiempoEspera + "ms (T" + transition + " no sensibilizada por tiempo)");
                     mutex.release();
                     Thread.sleep(tiempoEspera);
-                    logger.logDetalle(hilo + " despierta, intenta re-adquirir mutex");
                     mutex.acquire();
                     logger.logDetalle(hilo + " re-adquirio el mutex");
                     k = true;
@@ -73,7 +74,8 @@ public class Monitor implements MonitorInterface {
                 logger.logDetalle(hilo + " libera mutex, espera en cola de condicion (T" + transition + " sin tokens)");
                 mutex.release();
                 colas.esperar(transition);
-                logger.logDetalle(hilo + " despierta de cola de condicion (handoff), tiene el mutex");
+                mutex.acquire();
+                logger.logDetalle(hilo + " re-adquirio el mutex despues de ser despertado");
                 k = true;
             }
         }

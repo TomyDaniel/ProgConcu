@@ -3,11 +3,9 @@ import java.util.List;
 import java.util.Random;
 
 public class PoliticaAleatoria implements PoliticaInterface {
-    private final int[] conflictivas;
     private final Random rand;
 
     public PoliticaAleatoria() {
-        this.conflictivas = new int[]{5, 2, 7};
         this.rand = new Random();
     }
 
@@ -35,11 +33,4 @@ public class PoliticaAleatoria implements PoliticaInterface {
         return opcionesValidas.get(indiceAleatorio);
     }
 
-    @Override
-    public boolean esTransicionConflictiva(int transition) {
-        for (int t : conflictivas) {
-            if (t == transition) return true;
-        }
-        return false;
-    }
 }

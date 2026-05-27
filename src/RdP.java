@@ -1,53 +1,39 @@
 public class RdP {
-    private int[] marcado;
-    private final int[] marcadoInicial;
-    private final int[][] matrizIncidencia;
-    private final long[] tiempos;
-    private long[] tSensibilizado;
-    private final int[][] invariantesPlaza;
-    private final int[] valoresInvariantes;
+    private int[] marcado = new int[]{3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0};
+    private final int[][] matrizIncidencia = new int[][] {
+            {-1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1},
+            { 1, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+            {-1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+            { 0,  1, -1,  0,  0, -1,  0, -1,  0,  0,  0,  0},
+            { 0,  0,  1, -1,  0,  0,  0,  0,  0,  0,  0,  0},
+            { 0,  0,  0,  1, -1,  0,  0,  0,  0,  0,  0,  0},
+            { 0,  0, -1,  0,  1, -1,  1, -1,  0,  0,  1,  0},
+            { 0,  0,  0,  0,  0,  1, -1,  0,  0,  0,  0,  0},
+            { 0,  0,  0,  0,  0,  0,  0,  1, -1,  0,  0,  0},
+            { 0,  0,  0,  0,  0,  0,  0,  0,  1, -1,  0,  0},
+            { 0,  0,  0,  0,  0,  0,  0,  0,  0,  1, -1,  0},
+            { 0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  1, -1}
+    };
+    private final long[] tiempos = new long[]{0, 100, 0, 100, 100, 0, 100, 0, 100, 100, 100, 0};
+    private long[] tSensibilizado = new long[12];
+    private final int[][] invariantesPlaza = new int[][] {
+            {  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+            {  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  0},
+            {  1,  1,  0,  1,  1,  1,  0,  1,  1,  1,  1,  1}
+    };
+    private final int[] valoresInvariantes = new int[]{1, 1, 3};
 
     public RdP() {
-        this.marcadoInicial = new int[]{3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0};
-        this.marcado = marcadoInicial.clone();
-        this.matrizIncidencia = new int[][] {
-                {-1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1},
-                { 1, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
-                {-1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
-                { 0,  1, -1,  0,  0, -1,  0, -1,  0,  0,  0,  0},
-                { 0,  0,  1, -1,  0,  0,  0,  0,  0,  0,  0,  0},
-                { 0,  0,  0,  1, -1,  0,  0,  0,  0,  0,  0,  0},
-                { 0,  0, -1,  0,  1, -1,  1, -1,  0,  0,  1,  0},
-                { 0,  0,  0,  0,  0,  1, -1,  0,  0,  0,  0,  0},
-                { 0,  0,  0,  0,  0,  0,  0,  1, -1,  0,  0,  0},
-                { 0,  0,  0,  0,  0,  0,  0,  0,  1, -1,  0,  0},
-                { 0,  0,  0,  0,  0,  0,  0,  0,  0,  1, -1,  0},
-                { 0,  0,  0,  0,  1,  0,  1,  0,  0,  0,  1, -1}
-        };
-        // Estos tiempos solo corresponden a alfa, no ponemos los de beta dejando implicitamente que sean infinito
-        this.tiempos = new long[]{0, 100, 0, 100, 100, 0, 100, 0, 100, 100, 100, 0};
-        this.tSensibilizado = new long[12];
-        this.invariantesPlaza = new int[][] {
-                {  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0},
-                {  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  0},
-                {  1,  1,  0,  1,  1,  1,  0,  1,  1,  1,  1,  1}
-        };
-        this.valoresInvariantes = new int[]{1, 1, 3};
     }
 
     public boolean esSensibilizada(int transition) {
         if (!esSensibilizadaEstructural(transition)) return false;
-        if (tiempos[transition] > 0) {
-            if (tSensibilizado[transition] == 0) {
-                actualizarTiempoSensibilizado(transition);
-            }
-            return estaDentroVentanaTemporal(transition);
-        }
+        if (tiempos[transition] > 0) return calcularTiempoEspera(transition) == 0;
         return true;
     }
 
     public boolean[] getSensibilizadas() {
-        boolean[] sensibilizadas = new boolean[matrizIncidencia[0].length];
+        boolean[] sensibilizadas = new boolean[getCantidadTransiciones()];
         for (int t = 0; t < sensibilizadas.length; t++) {
             sensibilizadas[t] = esSensibilizada(t);
         }
@@ -61,14 +47,14 @@ public class RdP {
 
         tSensibilizado[transition] = 0;
 
-        for (int t = 0; t < matrizIncidencia[0].length; t++) {
+        for (int t = 0; t < getCantidadTransiciones(); t++) {
             if (tiempos[t] > 0) {
                 if (esSensibilizadaEstructural(t)) {
                     if (tSensibilizado[t] == 0) {
                         actualizarTiempoSensibilizado(t);
                     }
                 } else {
-                    tSensibilizado[t] = 0; // Perdió los tokens, el tiempo se resetea
+                    tSensibilizado[t] = 0;
                 }
             }
         }
@@ -106,10 +92,6 @@ public class RdP {
         long tiempoTranscurrido = System.currentTimeMillis() - tSensibilizado[transition];
         long restante = tiempos[transition] - tiempoTranscurrido;
         return restante > 0 ? restante : 0;
-    }
-
-    private boolean estaDentroVentanaTemporal(int transition) {
-        return calcularTiempoEspera(transition) == 0;
     }
 
     private void actualizarTiempoSensibilizado(int transition) {

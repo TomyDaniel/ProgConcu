@@ -4,9 +4,11 @@ import java.io.IOException;
 
 public class AnalizadorInvariantes {
     private final String logPath;
+    private final int invariantesEsperados;
 
-    public AnalizadorInvariantes(String logPath) {
+    public AnalizadorInvariantes(String logPath, int invariantesEsperados) {
         this.logPath = logPath;
+        this.invariantesEsperados = invariantesEsperados;
     }
 
     public void analizar() {
@@ -49,11 +51,15 @@ public class AnalizadorInvariantes {
         int sumaCaminos = conteoSimple + conteoMedia + conteoAlta;
 
         if (sumaCaminos == totalT11) {
-            System.out.println("  [ÉXITO] Análisis completado. La suma de los invariantes procesados coincide exactamente con las salidas T11.");
-            System.out.println("  Invariantes de transición verificados correctamente.");
+            System.out.println("  [OK] Consistencia interna: T4+T6+T10 coincide con T11.");
         } else {
-            System.out.println("  [ERROR] Hay una discrepancia estructural.");
-            System.out.println("  Suma de procesos (" + sumaCaminos + ") != Salidas T11 (" + totalT11 + ")");
+            System.out.println("  [ERROR] Discrepancia estructural: suma de procesos (" + sumaCaminos + ") != T11 (" + totalT11 + ")");
+        }
+
+        if (totalT11 == invariantesEsperados) {
+            System.out.println("  [OK] Se completaron exactamente " + invariantesEsperados + " invariantes.");
+        } else {
+            System.out.println("  [ADVERTENCIA] Se completaron " + totalT11 + " invariantes, se esperaban " + invariantesEsperados + ".");
         }
     }
 
@@ -67,7 +73,4 @@ public class AnalizadorInvariantes {
         return contador;
     }
 
-    public boolean cumpleInvariante() {
-        return true;
-    }
 }

@@ -1,3 +1,4 @@
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Transicion extends Thread {
@@ -6,24 +7,27 @@ public class Transicion extends Thread {
     private final Logger logger;
     private final AtomicInteger invariantesGlobales;
     private final int limite;
+    private final AtomicBoolean apagado;
 
     // Contador para controlar que entren exactamente 200 tokens
     private static final AtomicInteger tokensGenerados = new AtomicInteger(0);
 
     public Transicion(MonitorInterface monitor, int[] secuencia, Logger logger,
-                      AtomicInteger invariantesGlobales, int limite, String nombre) {
+                      AtomicInteger invariantesGlobales, int limite, String nombre,
+                      AtomicBoolean apagado) {
         this.monitor = monitor;
         this.secuencia = secuencia;
         this.logger = logger;
         this.invariantesGlobales = invariantesGlobales;
         this.limite = limite;
+        this.apagado = apagado;
         this.setName(nombre);
     }
 
     @Override
     public void run() {
         try {
-            while (!Thread.currentThread().isInterrupted()) {
+            while (!apagado.get()) {
                 for (int transicion : secuencia) {
 
                     // Cerramos la canilla al llegar a 200
@@ -37,7 +41,7 @@ public class Transicion extends Thread {
                     while (!disparado) {
                         disparado = monitor.fireTransition(transicion);
                         if (disparado) {
-                            logger.logTransicion(transicion);
+                            // logTransicion ahora se hace dentro del Monitor (mutex)
 
                             // Le avisamos al Main que un token logró salir
                             if (transicion == 11) {

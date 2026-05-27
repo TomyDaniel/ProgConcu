@@ -1,8 +1,5 @@
 public class PoliticaPrioritaria implements PoliticaInterface {
-    private final int[] prioridades;
-
     public PoliticaPrioritaria() {
-        this.prioridades = new int[]{5, 2, 7};
     }
 
     @Override
@@ -32,11 +29,4 @@ public class PoliticaPrioritaria implements PoliticaInterface {
         return -1;
     }
 
-    @Override
-    public boolean esTransicionConflictiva(int transition) {
-        for (int t : prioridades) {
-            if (t == transition) return true;
-        }
-        return false;
-    }
 }
