@@ -4,23 +4,11 @@ import java.io.IOException;
 import java.util.LinkedList;
 
 public class Logger extends Thread {
-    private final LinkedList<LogEntry> queue;
+    private final LinkedList<String> queue;
     private BufferedWriter detalleWriter;
     private BufferedWriter transicionesWriter;
     private volatile boolean finalizar;
     private final long startTime;
-
-    private static class LogEntry {
-        final String mensaje;
-        final boolean esTransicion;
-        final long timestamp;
-
-        LogEntry(String mensaje, boolean esTransicion) {
-            this.mensaje = mensaje;
-            this.esTransicion = esTransicion;
-            this.timestamp = System.currentTimeMillis();
-        }
-    }
 
     public Logger(String politica) {
         this.queue = new LinkedList<>();
@@ -51,18 +39,16 @@ public class Logger extends Thread {
     }
 
     public void logTransicion(int transition) {
-        LogEntry entry = new LogEntry("T" + transition + "-", true);
         synchronized (this) {
-            queue.addLast(entry);
+            queue.addLast("T" + transition + "-");
             notifyAll();
         }
     }
 
     public void logDetalle(String mensaje) {
         String timestamp = "[" + (System.currentTimeMillis() - startTime) + "ms]";
-        LogEntry entry = new LogEntry(timestamp + " " + mensaje, false);
         synchronized (this) {
-            queue.addLast(entry);
+            queue.addLast(timestamp + " " + mensaje);
             notifyAll();
         }
     }
@@ -70,7 +56,7 @@ public class Logger extends Thread {
     public void finalizar() {
         synchronized (this) {
             finalizar = true;
-            queue.addLast(new LogEntry("FIN", false));
+            queue.addLast("FIN");
             notifyAll();
         }
     }
@@ -79,7 +65,7 @@ public class Logger extends Thread {
     public void run() {
         try {
             while (true) {
-                LogEntry entrada;
+                String entrada;
                 synchronized (this) {
                     while (queue.isEmpty()) {
                         try {
@@ -93,18 +79,18 @@ public class Logger extends Thread {
                     entrada = queue.removeFirst();
                 }
 
-                if (entrada.mensaje.equals("FIN")) {
+                if (entrada.equals("FIN")) {
                     break;
                 }
 
                 try {
-                    if (entrada.esTransicion) {
-                        String ts = "[" + (entrada.timestamp - startTime) + "ms] ";
-                        detalleWriter.write(ts + entrada.mensaje);
+                    if (entrada.startsWith("T")) {
+                        String ts = "[" + (System.currentTimeMillis() - startTime) + "ms] ";
+                        detalleWriter.write(ts + entrada);
                         detalleWriter.newLine();
-                        transicionesWriter.write(entrada.mensaje);
+                        transicionesWriter.write(entrada);
                     } else {
-                        detalleWriter.write(entrada.mensaje);
+                        detalleWriter.write(entrada);
                         detalleWriter.newLine();
                     }
                 } catch (IOException e) {

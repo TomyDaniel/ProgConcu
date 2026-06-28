@@ -1,7 +1,6 @@
 import java.util.concurrent.Semaphore;
 
 public class Mutex {
-    // Usamos fairness (true) para evitar inanición en la puerta de entrada
     private final Semaphore mutex = new Semaphore(1, true);
 
     public void acquire() {

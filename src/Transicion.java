@@ -30,7 +30,7 @@ public class Transicion extends Thread {
             while (!apagado.get()) {
                 for (int transicion : secuencia) {
 
-                    // Cerramos la canilla al llegar a 200
+                    // Dejamos de hacer tareas cuando llegamos a 200
                     if (transicion == 0) {
                         if (tokensGenerados.incrementAndGet() > limite) {
                             return; // El generador terminó su trabajo y muere en paz
@@ -41,8 +41,6 @@ public class Transicion extends Thread {
                     while (!disparado) {
                         disparado = monitor.fireTransition(transicion);
                         if (disparado) {
-                            // logTransicion ahora se hace dentro del Monitor (mutex)
-
                             // Le avisamos al Main que un token logró salir
                             if (transicion == 11) {
                                 invariantesGlobales.incrementAndGet();

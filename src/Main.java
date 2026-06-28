@@ -11,15 +11,15 @@ public class Main {
         System.out.println("Invariantes a completar: " + CANTIDAD_INVARIANTES);
 
         // Configuracion de Hilos
-        int cantHilosGenerador = 1;
+        int cantHilosGenerador = 3;
         int cantHilosSimple    = 1;
         int cantHilosMedia     = 1;
         int cantHilosAlta      = 1;
-        int cantHilosSalida    = 1;
+        int cantHilosSalida    = 3;
 
         // Inicializacion de clases que no aportan concurrencia
         RdP rdp = new RdP();
-        PoliticaInterface politica = new PoliticaAleatoria();
+        PoliticaInterface politica = new PoliticaPrioritaria();
         String nombrePolitica = politica.getClass().getSimpleName();
         System.out.println("Política: " + nombrePolitica);
 
@@ -75,7 +75,7 @@ public class Main {
             Thread.sleep(50);
         }
 
-        System.out.println("\nMeta alcanzada. Enviando señal de apagado a todos los hilos...");
+        System.out.println("\nInvariantes completadas, enviar signal para apagar a todos los hilos");
 
         // Apagamos: primero flag, luego interrupt para despertar bloqueados
         apagado.set(true);

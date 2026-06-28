@@ -26,7 +26,7 @@ public class RdP {
     public RdP() {
     }
 
-    public boolean esSensibilizada(int transition) {
+    private boolean esSensibilizada(int transition) {
         if (!esSensibilizadaEstructural(transition)) return false;
         if (tiempos[transition] > 0) return calcularTiempoEspera(transition) == 0;
         return true;
@@ -40,7 +40,18 @@ public class RdP {
         return sensibilizadas;
     }
 
-    public void disparar(int transition) {
+    public boolean disparar(int transition) {
+        if (!esSensibilizadaEstructural(transition)) {
+            return false;
+        }
+
+        if (tiempos[transition] > 0) {
+            long tiempoEspera = calcularTiempoEspera(transition);
+            if (tiempoEspera > 0) {
+                return false;
+            }
+        }
+
         for (int plaza = 0; plaza < marcado.length; plaza++) {
             marcado[plaza] += matrizIncidencia[plaza][transition];
         }
@@ -62,6 +73,8 @@ public class RdP {
         if (!verificarInvariantesPlaza()) {
             throw new RuntimeException("Violación de invariante de plaza tras disparar T" + transition);
         }
+
+        return true;
     }
 
     public int getCantidadTransiciones() {
